@@ -69,7 +69,10 @@ class Protein():
         return len(self.protein)
 
     def __str__(self) -> str:
-        return f'{self.id}: {self.protein}'
+        if self.id != '':
+            return f'{self.id}: {self.protein}'
+        else:
+            return f'{self.protein}'
 
     def find_motifs(self, motif):
         motif_positions = []
@@ -82,7 +85,8 @@ class Protein():
 
 class Sequence():
     def __init__(self, dna: str, id: str = '',
-                 *, is_rna: bool = False) -> None:
+                 *, is_rna: bool = False,
+                 update_immediately=False) -> None:
         if not is_rna:
             self.dna = dna.upper()
             self.rna = self.dna.replace('T', 'U').upper()
@@ -92,13 +96,17 @@ class Sequence():
 
         self.id = id
 
-        self.__update_after_changes__()
+        if update_immediately:
+            self.__update_after_changes__()
 
     def __len__(self) -> int:
         return len(self.dna)
 
     def __str__(self) -> str:
-        return f'{self.id}: {self.dna}'
+        if self.id != '':
+            return f'{self.id}: {self.dna}'
+        else:
+            return f'{self.dna}'
 
     def __eq__(self, seq2: object) -> bool:
         if not isinstance(seq2, Sequence):
@@ -189,6 +197,18 @@ class Sequence():
         substring_chains = dict(sorted(
             substring_chains.items(), key=lambda x: x[1]))
         return substring_chains
+
+    def find_clumps(self, k: int, clump_size: int, window_size: int) -> set[str]:
+        substring_chains: List[str] = []
+        for i in range(len(self.dna) - window_size + 1):
+            print(f'Searching {i+1}/{len(self.dna) - window_size + 1}')
+            substrings = self.find_substrings(k, window = (i, i + window_size))
+            for ke, v in substrings.items():
+                if v >= clump_size:
+                    substring_chains.append(ke)
+        substring_chains = set(substring_chains)
+        return substring_chains
+                    
 
     def splice(self, intron: str) -> None:
         while intron in self.rna:
@@ -477,3 +497,12 @@ def time_and_memory_decorator(func):
         return answer, peak, tim
 
     return wrapper
+
+def auto_timer(func):
+
+    def wrapper(*args, **kwargs):
+        start_time = perf_counter()
+        func(*args, **kwargs)
+        end_time = perf_counter()
+        print(f'{end_time - start_time:0.6f}')
+        
