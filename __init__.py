@@ -81,7 +81,8 @@ class Protein():
 
 
 class Sequence():
-    def __init__(self, dna: str, id: str = '', *, is_rna: bool = False) -> None:
+    def __init__(self, dna: str, id: str = '',
+                 *, is_rna: bool = False) -> None:
         if not is_rna:
             self.dna = dna.upper()
             self.rna = self.dna.replace('T', 'U').upper()
@@ -103,6 +104,37 @@ class Sequence():
         if not isinstance(seq2, Sequence):
             return NotImplemented
         return self.dna == seq2.dna
+
+    def __form_peptide_chain__(self):
+        self.peptide_chain = ''
+        rna_copy = [x for x in self.rna]
+        rna_copy.reverse()
+
+        for _ in range(len(rna_copy) // 3):
+            codon = ''
+            for _ in range(3):
+                codon += rna_copy.pop()
+            self.peptide_chain += codon_table[codon]
+
+    def __find_skew__(self):
+        self.skew = [0]
+        skew = 0
+        for base in self.dna:
+            if base == 'C':
+                skew -= 1
+            elif base == 'G':
+                skew += 1
+            self.skew.append(skew)
+
+    def __form_reverse_complement_peptide_chain__(self):
+        self.reverse_complement_peptide_chain = ''
+        rna_copy = [x for x in self.rna_complement]
+
+        for _ in range(len(rna_copy) // 3):
+            codon = ''
+            for _ in range(3):
+                codon += rna_copy.pop()
+            self.reverse_complement_peptide_chain += codon_table[codon]
 
     def __update_after_changes__(self):
         self.dna_base_count = {'G': self.dna.count('G'),
@@ -130,18 +162,26 @@ class Sequence():
 
         self.__form_peptide_chain__()
         self.__form_reverse_complement_peptide_chain__()
+        self.__find_skew__()
 
     def gc_content(self, round_places: int = 3) -> Decimal:
-        # Check this
         numerator = Decimal(self.dna_base_count['G']
                             + self.dna_base_count['C'])
         denominator = Decimal(len(self.dna))
         return round(numerator / denominator, round_places)
 
-    def find_substrings(self, shortest: int, longest: int) -> Dict[str, int]:
+    def find_substrings(self, shortest: int, longest: int = 0,
+                        *, window: Tuple[int, int] = (0, 0)) -> Dict[str, int]:
+        """Returns a dict containing all the
+           unique substrings and their counts"""
+        if window == (0, 0):
+            window = (0, len(self.dna))
+        if longest == 0:
+            longest = shortest
+
         substring_chains: Dict[str, int] = dict()
         for length in range(shortest, longest+1):
-            for i in range(0, len(self.dna) - length + 1):
+            for i in range(window[0], window[1] - length + 1):
                 try:
                     substring_chains[self.dna[i:i+length]] += 1
                 except KeyError:
@@ -150,37 +190,16 @@ class Sequence():
             substring_chains.items(), key=lambda x: x[1]))
         return substring_chains
 
-    def splice(self, intron):
+    def splice(self, intron: str) -> None:
         while intron in self.rna:
             self.rna = self.rna.replace(intron, '')
         self.__update_after_changes__()
 
-    def __form_peptide_chain__(self):
-        self.peptide_chain = ''
-        rna_copy = [x for x in self.rna]
-        rna_copy.reverse()
-
-        for _ in range(len(rna_copy) // 3):
-            codon = ''
-            for _ in range(3):
-                codon += rna_copy.pop()
-            self.peptide_chain += codon_table[codon]
-
-    def __form_reverse_complement_peptide_chain__(self):
-        self.reverse_complement_peptide_chain = ''
-        rna_copy = [x for x in self.rna_complement]
-
-        for _ in range(len(rna_copy) // 3):
-            codon = ''
-            for _ in range(3):
-                codon += rna_copy.pop()
-            self.reverse_complement_peptide_chain += codon_table[codon]
-
-    def motifs(self, dna_chain):
+    def find_motif(self, dna_chain: str) -> List[int]:
         locations = []
         m_len = len(dna_chain)
         for i in range(0, len(self.dna) - m_len):
-            if dna_chain.dna == self.dna[i:i+m_len]:
+            if dna_chain == self.dna[i:i+m_len]:
                 locations.append(i)
 
         return locations
@@ -288,6 +307,14 @@ protein_alphabet = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L',
                     'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
 
+def concat_sequences(sequences: List[Sequence]) -> Sequence:
+    sequence_string = ''
+    for i, sequence in enumerate(sequences):
+        sequence_string += sequence.dna
+
+    return Sequence(sequence_string)
+
+
 def generate_random_sequence(gc: int, seq_length: int) -> Sequence:
     temp_seq_string = ''
     for _ in range(seq_length):
@@ -329,7 +356,7 @@ def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
 
 
 def read(filename: str, prefix: str = 'data/') -> list[str]:
-    with open(filename) as f:
+    with open(f'{prefix}{filename}') as f:
         input_data = f.readlines()
         input_data = [x.strip() for x in input_data]
         return input_data
