@@ -198,17 +198,20 @@ class Sequence():
             substring_chains.items(), key=lambda x: x[1]))
         return substring_chains
 
-    def find_clumps(self, k: int, clump_size: int, window_size: int) -> set[str]:
+    # Put sanity checing on the search_window and window size params
+    def find_clumps(self, k: int, clump_size: int,
+                    window_size: int, search_window:
+                    Tuple[int, int] = (0, 0)) -> set[str]:
+        if search_window == (0, 0):
+            search_window = (0, len(self.dna))
         substring_chains: List[str] = []
-        for i in range(len(self.dna) - window_size + 1):
-            print(f'Searching {i+1}/{len(self.dna) - window_size + 1}')
-            substrings = self.find_substrings(k, window = (i, i + window_size))
+        for i in range(search_window[0], search_window[1] - window_size + 1):
+            substrings = self.find_substrings(k, window=(i, i + window_size))
             for ke, v in substrings.items():
                 if v >= clump_size:
                     substring_chains.append(ke)
-        substring_chains = set(substring_chains)
-        return substring_chains
-                    
+        substring_chains_set = set(substring_chains)
+        return substring_chains_set
 
     def splice(self, intron: str) -> None:
         while intron in self.rna:
@@ -498,6 +501,7 @@ def time_and_memory_decorator(func):
 
     return wrapper
 
+
 def auto_timer(func):
 
     def wrapper(*args, **kwargs):
@@ -505,4 +509,3 @@ def auto_timer(func):
         func(*args, **kwargs)
         end_time = perf_counter()
         print(f'{end_time - start_time:0.6f}')
-        
