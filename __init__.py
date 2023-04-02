@@ -5,7 +5,7 @@ import pyperclip
 import requests
 import json
 from random import randint
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Union
 
 
 class ProteinMotif():
@@ -144,6 +144,11 @@ class Sequence():
                 codon += rna_copy.pop()
             self.reverse_complement_peptide_chain += codon_table[codon]
 
+    def __find_suspected_oriC__(self) -> None:
+        self.__find_skew__()
+        min_skew = min(self.skew)
+        self.suspected_oriC = self.skew.index(min_skew)
+
     def __update_after_changes__(self):
         self.dna_base_count = {'G': self.dna.count('G'),
                                'C': self.dna.count('C'),
@@ -226,6 +231,14 @@ class Sequence():
                 locations.append(i)
 
         return locations
+
+    def find_approximate_match(self, pattern: str, distance: int) -> List[int]:
+        locations: List[int] = []
+        for i in range(len(self.dna) - len(pattern) + 1):
+            if hamming_distance(self.dna[i:i+len(pattern)], pattern) <= distance:
+                locations.append(i)
+        return locations
+                
 
 # alanine          = ala = A
 # arginine         = arg = R
@@ -362,7 +375,7 @@ def generate_random_sequence(gc: int, seq_length: int) -> Sequence:
 
 def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
                               seq_length: Tuple[int, int],
-                              *, equilength: bool = True) -> list[Sequence]:
+                              *, equilength: bool = True) -> Union[list[Sequence], Sequence]:
     sequences = []
     if equilength:
         sequence_length = randint(seq_length[0], seq_length[1])
@@ -375,7 +388,10 @@ def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
 
         sequences.append(generate_random_sequence(gc_content, sequence_length))
 
-    return sequences
+    if len(sequences) == 1:
+        return sequences[0]
+    else:
+        return sequences
 
 
 def read(filename: str, prefix: str = 'data/') -> list[str]:
@@ -420,9 +436,13 @@ def read_uniprot(access_ids: list[str]) -> list[Protein]:
     return proteins
 
 
-def hamming_distance(s: Sequence, t: Sequence) -> int:
+def hamming_distance(s: Union[Sequence, str], t: Union[Sequence, str]) -> int:
     hamming = 0
-    for base_s, base_t in zip(s.dna, t.dna):
+    if isinstance(s, Sequence):
+        s = s.dna
+    if isinstance(t, Sequence):
+        t = t.dna
+    for base_s, base_t in zip(s, t):
         if base_s != base_t:
             hamming += 1
     return hamming
