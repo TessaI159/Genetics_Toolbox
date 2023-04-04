@@ -17,7 +17,8 @@ class ProteinMotif():
     :param motif_string: A string as described above
     :type motif_string: str
     """
-    # This constructor might be too long. try to shorten it, or break it up
+    # TODO (Tess): This constructor might be too long.
+    # Try to shorten it, or break it up
     def __init__(self, motif_string: str) -> None:
         """Constructor"""
         self.motif_string = motif_string
@@ -277,11 +278,16 @@ class Sequence():
         """Updates DNA base counts, RNA base counts,
         complements and reverse complements,
         peptide chains and reverse peptide chains, skew, and suspected oriC"""
-        self.__find_reverse_complements__()
+
+        # NOTE (Tess): No need to directly call __find_reading_frames
+        # or __find_reverse_complements__ since __find_open_reading_frames__
+        # calls them both
+        self.__find_open_reading_frames__()
         self.__update_base_counts__()
         self.__form_peptide_chain__()
         self.__form_reverse_complement_peptide_chain__()
-        self.__find_skew__()
+        # NOTE (Tess): No need to directly call __find_skew__
+        # since __find_suspected_oriC__ calls it
         self.__find_suspected_oriC__()
 
     def gc_content(self, round_places: int = 3) -> Decimal:
