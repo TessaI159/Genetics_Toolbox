@@ -298,7 +298,7 @@ class Sequence():
         :type clump_size: int
         :param window_size: The size of the
         SLIDING window. Think, 'I want to find clumps of
-        k-mers grouped within window_size base pairs of each other
+        k-mers grouped within window_size base pairs of each other'
         :type window_size: int
         :param search_window: The area of the DNA strand you want to search
         :type search_window: Tuple[int, int]
@@ -445,8 +445,8 @@ amino_acid_composition = {
 }
 
 # Masses of different amino masses, both average and monoisotopic
-amino_acid_mono_mass = dict()
-amino_acid_average_mass = dict()
+amino_acid_mono_mass: Dict[str, float] = dict()
+amino_acid_average_mass: Dict[str, float] = dict()
 
 for amino_acid in amino_acid_composition.keys():
     mono_total = 0.0
@@ -467,6 +467,13 @@ protein_alphabet = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L',
 
 
 def concat_sequences(sequences: List[Sequence]) -> Sequence:
+    """Concatenates multiple sequences into a single sequence
+
+    :param sequences: All sequences to be concatenated
+    :type sequences: List[Sequence]
+    :return: A single sequence
+    :rtype: Sequence
+    """
     sequence_string = ''
     for i, sequence in enumerate(sequences):
         sequence_string += sequence.dna
@@ -474,7 +481,17 @@ def concat_sequences(sequences: List[Sequence]) -> Sequence:
     return Sequence(sequence_string)
 
 
-def generate_random_sequence(gc: int, seq_length: int) -> Sequence:
+def __generate_random_sequence__(gc: int, seq_length: int) -> Sequence:
+    """Internal function. Generates a single random sequence
+
+    :param gc: The (approximate) gc content of the
+    sequence as a percent, 0 - 100
+    :type gc: int
+    :param seq_length: The length of the sequences to be generated
+    :type seq_length: int
+    :return: A random sequence
+    :rtype: Sequence
+    """
     temp_seq_string = ''
     for _ in range(seq_length):
 
@@ -500,6 +517,21 @@ def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
                               seq_length: Tuple[int, int],
                               *, equilength:
                               bool = True) -> Union[list[Sequence], Sequence]:
+    """Generates a list of random sequences, or a single random sequence
+
+    :param num_sequences: The number of sequences to generate
+    :type num_sequences: int
+    :param gc: The (approximate) gc content of the sequences,
+    minimum and maximum
+    :type gc: Tuple[float, float]
+    :param seq_length: The length of of sequences, minimum and maximum
+    :type seq_length: Tuple[int, int]
+    :param equilength: Whether the sequences should all
+    be the same length, default to true
+    :type equilength: bool
+    :return: A list of randomly generated sequences, or a single sequence
+    :rtype: Union[List[Sequence], Sequence]
+    """
     sequences = []
     if equilength:
         sequence_length = randint(seq_length[0], seq_length[1])
@@ -510,7 +542,8 @@ def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
         if not equilength:
             sequence_length = randint(seq_length[0], seq_length[1])
 
-        sequences.append(generate_random_sequence(gc_content, sequence_length))
+        sequences.append(__generate_random_sequence__(
+            gc_content, sequence_length))
 
     if len(sequences) == 1:
         return sequences[0]
@@ -519,6 +552,15 @@ def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
 
 
 def read(filename: str, prefix: str = 'data/') -> list[str]:
+    """Reads a file. Mostly for use with rosalind problems
+
+    :param filename: Filename
+    :type filename: str
+    :param prefix: Prefix for filename
+    :type prefix: str
+    :return: Contents of the file, each line as an entry in a list
+    :trype: List[str]
+    """
     with open(f'{prefix}{filename}') as f:
         input_data = f.readlines()
         input_data = [x.strip() for x in input_data]
@@ -526,6 +568,15 @@ def read(filename: str, prefix: str = 'data/') -> list[str]:
 
 
 def read_fasta_data(filename: str, prefix: str = 'data/') -> list[Sequence]:
+    """Reads a file or fasta sequences. Mostly for use with rosalind problems
+
+    :param filename: Filename
+    :type filename: str
+    :param prefix: Prefix for filename
+    :type prefix: str
+    :return: Content of the file
+    :trype: List[Sequence]
+    """
     fasta_data = dict()
     data_array = read(filename, prefix)
     current_id = data_array.pop(0)[1:]
@@ -547,6 +598,13 @@ def read_fasta_data(filename: str, prefix: str = 'data/') -> list[Sequence]:
 
 
 def read_uniprot(access_ids: list[str]) -> list[Protein]:
+    """Fetches fasta data from uniprot.org
+
+    :param access_ids: Ids to locate in the uniprot database
+    :type access_ids: List[str]
+    :return: All proteins matching access_ids
+    :rtype: List[Protein]
+    """
     base_url = 'https://rest.uniprot.org/uniprotkb/'
     proteins: list[Protein] = []
     for id in access_ids:
@@ -561,6 +619,15 @@ def read_uniprot(access_ids: list[str]) -> list[Protein]:
 
 
 def hamming_distance(s: Union[Sequence, str], t: Union[Sequence, str]) -> int:
+    """Finds the hamming distance between two DNA strands
+
+    :param s: A DNA strand
+    :type s: Union[Sequence, str]
+    :param t: A DNA strand
+    :type t: Union[Sequence, str]
+    :return: The hamming distance between s and t
+    :rtype: int
+    """
     hamming = 0
     if isinstance(s, Sequence):
         s = s.dna
@@ -572,7 +639,16 @@ def hamming_distance(s: Union[Sequence, str], t: Union[Sequence, str]) -> int:
     return hamming
 
 
-def find_consensus(consensus_matrix: dict[str, list[int]]) -> Sequence:
+def find_consensus(consensus_matrix: Dict[str, List[int]]) -> Sequence:
+    """Finds the 'average' DNA strand from a consensus_matrix
+
+    :param consensus_matrix: A consensus matrix
+    created from a list of Sequences.
+    The return parameter of find_consensus_matrix below
+    :type consensus_matrix: dict[str, List[int]]
+    :return: A consensus Sequence
+    :rtype: Sequence
+    """
     bases = ''
     for i in range(len(consensus_matrix['A'])):
         max_index = 0
@@ -586,6 +662,15 @@ def find_consensus(consensus_matrix: dict[str, list[int]]) -> Sequence:
 
 
 def find_consensus_matrix(sequences: list[Sequence]) -> Dict[str, List[int]]:
+    """Finds a consensus matrix, as defined at
+    https://rosalind.info/problems/cons/
+    from a list of Sequences
+
+    :param sequences: The sequences to extract the consensus matrix from
+    :type sequences: List[Sequence]
+    :return: A consensus matrix
+    :rtype: Dict[str, List[int]]
+    """
     try:
         check_sequence_lengths(sequences)
     except SequenceLengthException as e:
@@ -606,6 +691,12 @@ def find_consensus_matrix(sequences: list[Sequence]) -> Dict[str, List[int]]:
 
 
 def check_sequence_lengths(sequences: list[Sequence]) -> None:
+    """Ensures a list of sequences are all the same length
+
+    :param sequences: List of Sequences to check length of
+    :type sequences: List[Sequences]
+    :raises SequenceLengthException: If all sequences are not equal length
+    """
     normal_length = len(sequences[0])
     for sequence in sequences:
         if len(sequence) != normal_length:
