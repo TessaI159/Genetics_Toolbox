@@ -9,7 +9,17 @@ from typing import Tuple, Dict, List, Union
 
 
 class ProteinMotif():
+    """Class representing a motif do be found in a protein.
+    Letters indicate proteins,
+    {a, b, c...} indicates any protein except a, b, c...,
+    [a, b, c...] indicates any protein a, b, c...
+
+    :param motif_string: A string as described above
+    :type motif_string: str
+    """
+    # This constructor might be too long. try to shorten it, or break it up
     def __init__(self, motif_string: str) -> None:
+        """Constructor"""
         self.motif_string = motif_string
         self.positions = []
 
@@ -51,9 +61,22 @@ class ProteinMotif():
                 self.positions.append([c])
 
     def __len__(self) -> int:
+        """Returns the length of the motif. Any protein being compared
+        to this motif should be at least this long.
+
+        :return: Length of motif
+        :rtype: int
+        """
         return len(self.positions)
 
     def match(self, substring: str) -> bool:
+        """Checks if a given string matches the motif pattern
+
+        :param substring: String to check against motif pattern
+        :type substring: str
+        :return: True if matches, False otherwise
+        :rtype: bool
+        """
         for i in range(len(substring)):
             if substring[i] not in self.positions[i]:
                 return False
@@ -61,6 +84,13 @@ class ProteinMotif():
 
 
 class Protein():
+    """Class that represents a protein as a string of amino acids
+
+    :param protein: Amino acid string
+    :type protein: str
+    :param id: Name of protein
+    :type id: str
+    """
     def __init__(self, protein: str, id: str = '') -> None:
         self.protein = protein
         self.id = id
@@ -74,19 +104,42 @@ class Protein():
         else:
             return f'{self.protein}'
 
-    def find_motifs(self, motif):
+    def find_motifs(self, motif: Union[ProteinMotif, str]) -> List[int]:
+        """Searches all substrings that match len(motif) to see if they match.
+
+        :param motif: A protein motif you wish to find
+        inside the current protein
+        :type motif: ProteinMotif
+        :return: All starting positions of protein that match motif
+        :rtype: List[int]
+        """
+        if isinstance(motif, str):
+            motif = ProteinMotif(motif)
         motif_positions = []
         for i in range(len(self.protein) - len(motif) + 1):
             substring_to_check = self.protein[i:i+len(motif)]
-            if motif.check(substring_to_check):
+            if motif.match(substring_to_check):
                 motif_positions.append(i + 1)
         return motif_positions
 
 
 class Sequence():
+    """Class representing a strand of DNA or RNA
+
+    :param dna: String of A, C, G, T
+    :type dna: str
+    :param id: Name of DNA strand
+    :type id: str
+    :param is_rna: Tells if strand is RNA or DNA;
+    probably redundant, we could just check for the presence of U
+    :type is_rna: bool
+    :param update_immediately: Tells if the DNA should
+    immediately run __update_after_changes__
+    :type update_immediately: bool"""
     def __init__(self, dna: str, id: str = '',
                  *, is_rna: bool = False,
                  update_immediately=False) -> None:
+        """Constructor"""
         if not is_rna:
             self.dna = dna.upper()
             self.rna = self.dna.replace('T', 'U').upper()
@@ -113,7 +166,9 @@ class Sequence():
             return NotImplemented
         return self.dna == seq2.dna
 
-    def __form_peptide_chain__(self):
+    def __form_peptide_chain__(self) -> None:
+        """Internal method. Defines the peptide chain
+        formed by the entire strand"""
         self.peptide_chain = ''
         rna_copy = [x for x in self.rna]
         rna_copy.reverse()
@@ -124,17 +179,9 @@ class Sequence():
                 codon += rna_copy.pop()
             self.peptide_chain += codon_table[codon]
 
-    def __find_skew__(self):
-        self.skew = [0]
-        skew = 0
-        for base in self.dna:
-            if base == 'C':
-                skew -= 1
-            elif base == 'G':
-                skew += 1
-            self.skew.append(skew)
-
     def __form_reverse_complement_peptide_chain__(self):
+        """Internal method. Defines the reverse complement
+        peptide chain formed by the entire DNA strand"""
         self.reverse_complement_peptide_chain = ''
         rna_copy = [x for x in self.rna_complement]
 
@@ -144,12 +191,27 @@ class Sequence():
                 codon += rna_copy.pop()
             self.reverse_complement_peptide_chain += codon_table[codon]
 
+    def __find_skew__(self):
+        """Internal method. Defines the skew graph of the DNA"""
+        self.skew = [0]
+        skew = 0
+        for base in self.dna:
+            if base == 'C':
+                skew -= 1
+            elif base == 'G':
+                skew += 1
+            self.skew.append(skew)
+
     def __find_suspected_oriC__(self) -> None:
+        """Internal method. Defines the index of the suspected oriC"""
         self.__find_skew__()
         min_skew = min(self.skew)
         self.suspected_oriC = self.skew.index(min_skew)
 
-    def __update_after_changes__(self):
+    def __update_after_changes__(self) -> None:
+        """Updates DNA base counts, RNA base counts,
+        complements and reverse complements,
+        peptide chains and reverse peptide chains, skew, and suspected oriC"""
         self.dna_base_count = {'G': self.dna.count('G'),
                                'C': self.dna.count('C'),
                                'T': self.dna.count('T'),
@@ -176,8 +238,16 @@ class Sequence():
         self.__form_peptide_chain__()
         self.__form_reverse_complement_peptide_chain__()
         self.__find_skew__()
+        self.__find_suspected_oriC__()
 
     def gc_content(self, round_places: int = 3) -> Decimal:
+        """Checks the gc content of the DNA chain
+
+        :param round_places: Number of decimal places to define
+        :type round_places: int
+        :return: gc_content as a percentage from 0 - 1
+        :rtype: Decimal
+        """
         numerator = Decimal(self.dna_base_count['G']
                             + self.dna_base_count['C'])
         denominator = Decimal(len(self.dna))
@@ -185,8 +255,20 @@ class Sequence():
 
     def find_substrings(self, shortest: int, longest: int = 0,
                         *, window: Tuple[int, int] = (0, 0)) -> Dict[str, int]:
-        """Returns a dict containing all the
-           unique substrings and their counts"""
+        """Finds all unique substrings of any defined length
+        inside of a specific window of the DNA strand
+
+        :param shortest: The shortest substrings to find
+        :type shorest: int
+        :param longest: The longest substrings to find
+        :type longest: int
+        :param window: The range of the window on the
+        DNA strand to search, defaults to the entire DNA strand
+        :type window: Tuple[int, int]
+        :return: All substrings contained in the DNA strand,
+        and the number of times each occurs
+        :rtype: Dict[str, int]
+        """
         if window == (0, 0):
             window = (0, len(self.dna))
         if longest == 0:
@@ -195,9 +277,9 @@ class Sequence():
         substring_chains: Dict[str, int] = dict()
         for length in range(shortest, longest+1):
             for i in range(window[0], window[1] - length + 1):
-                try:
+                if self.dna[i:i+length] in substring_chains:
                     substring_chains[self.dna[i:i+length]] += 1
-                except KeyError:
+                else:
                     substring_chains[self.dna[i:i+length]] = 1
         substring_chains = dict(sorted(
             substring_chains.items(), key=lambda x: x[1]))
@@ -207,6 +289,23 @@ class Sequence():
     def find_clumps(self, k: int, clump_size: int,
                     window_size: int, search_window:
                     Tuple[int, int] = (0, 0)) -> set[str]:
+        """Finds 'clumps' of polymers located inside the DNA strand
+
+        :param k: The length of polymer to search for
+        :type k: int
+        :param clump_size: The number of identical
+        polymers we wish to find in our window
+        :type clump_size: int
+        :param window_size: The size of the
+        SLIDING window. Think, 'I want to find clumps of
+        k-mers grouped within window_size base pairs of each other
+        :type window_size: int
+        :param search_window: The area of the DNA strand you want to search
+        :type search_window: Tuple[int, int]
+        :return: All k-mers that appears at
+        least clump_size times within a range of window_size base pairs
+        :rtype: Set[str]
+        """
         if search_window == (0, 0):
             search_window = (0, len(self.dna))
         substring_chains: List[str] = []
@@ -219,11 +318,24 @@ class Sequence():
         return substring_chains_set
 
     def splice(self, intron: str) -> None:
+        """Method that removes the specified intron from the RNA strand
+        Immediately calls __update_after_changes__ when done
+
+        :param intron: The intron which should be removed
+        :type intron: str
+        """
         while intron in self.rna:
             self.rna = self.rna.replace(intron, '')
         self.__update_after_changes__()
 
     def find_motif(self, dna_chain: str) -> List[int]:
+        """Finds all occurences of dna_chain inside the DNA strand
+
+        :param dna_chain Chain to find locations of
+        :type dna_chain: str
+        :return: A list of all starting indices of dna_chain
+        :rtype: List[int]
+        """
         locations = []
         m_len = len(dna_chain)
         for i in range(0, len(self.dna) - m_len):
@@ -233,12 +345,23 @@ class Sequence():
         return locations
 
     def find_approximate_match(self, pattern: str, distance: int) -> List[int]:
+        """Same thing as find_motif, but finds similar
+        patterns as well as exact matches
+
+        :param pattern: The pattern to find in the DNA strand
+        :type pattern: str
+        :param distance: The allowable hamming distance
+        :type distance: int
+        :return: A list of all starting indices of pattern
+        :rtype: List[int]
+        """
         locations: List[int] = []
         for i in range(len(self.dna) - len(pattern) + 1):
-            if hamming_distance(self.dna[i:i+len(pattern)], pattern) <= distance:
+            if hamming_distance(self.dna[i:i+len(pattern)],
+                                pattern) <= distance:
                 locations.append(i)
         return locations
-                
+
 
 # alanine          = ala = A
 # arginine         = arg = R
@@ -375,7 +498,8 @@ def generate_random_sequence(gc: int, seq_length: int) -> Sequence:
 
 def generate_random_sequences(num_sequences: int, gc: Tuple[float, float],
                               seq_length: Tuple[int, int],
-                              *, equilength: bool = True) -> Union[list[Sequence], Sequence]:
+                              *, equilength:
+                              bool = True) -> Union[list[Sequence], Sequence]:
     sequences = []
     if equilength:
         sequence_length = randint(seq_length[0], seq_length[1])
