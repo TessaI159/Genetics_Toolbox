@@ -137,8 +137,8 @@ class Sequence():
     immediately run __update_after_changes__
     :type update_immediately: bool"""
     def __init__(self, dna: str, id: str = '',
-                 *, is_rna: bool=False,
-                 update_immediately=False) -> None:
+                 *, is_rna: bool = False,
+                 update_immediately: bool = False) -> None:
         """Constructor"""
         if not is_rna:
             self.dna = dna.upper()
@@ -247,7 +247,8 @@ class Sequence():
             else:
                 ending = len(self.dna)
             self.reading_frames.append(self.rna[beginning:ending])
-            self.reading_frames.append(self.rna_reverse_complement[beginning:ending])
+            self.reading_frames.append(self.rna_reverse_complement
+                                       [beginning:ending])
 
     def __find_open_reading_frames__(self) -> None:
         """Internal method. Finds all open reading frames"""
@@ -263,10 +264,14 @@ class Sequence():
 
             for start_codon in start_codons:
                 for stop_codon in stop_codons:
-                    self.open_reading_frames.append(frame[start_codon:stop_codon])
-        self.open_reading_frames = [Sequence(x, update_immediately=True, is_rna=True) for x in self.open_reading_frames]
-        self.open_reading_frames = [x for x in self.open_reading_frames if '*' not in x.peptide_chain and x.peptide_chain != '']
-            
+                    self.open_reading_frames.append(frame
+                                                    [start_codon:stop_codon])
+        self.open_reading_frames = [Sequence(x, update_immediately=True,
+                                             is_rna=True) for x in
+                                    self.open_reading_frames]
+        self.open_reading_frames = [x for x in self.open_reading_frames
+                                    if '*' not in x.peptide_chain
+                                    and x.peptide_chain != '']
 
     def __update_after_changes__(self) -> None:
         """Updates DNA base counts, RNA base counts,
@@ -402,8 +407,6 @@ class Sequence():
                 locations.append(i)
         return locations
 
-    
-
 
 # alanine          = ala = A
 # arginine         = arg = R
@@ -511,6 +514,7 @@ protein_alphabet = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L',
 def find_all_indices(s, ch):
     return [i for i in range(0, len(s), len(ch)) if s[i:i+len(ch)] == ch]
 
+
 def concat_sequences(sequences: List[Sequence]) -> Sequence:
     """Concatenates multiple sequences into a single sequence
 
@@ -612,7 +616,8 @@ def read(filename: str, prefix: str = 'data/') -> list[str]:
         return input_data
 
 
-def read_fasta_data(filename: str, prefix: str = 'data/', update: bool=False) -> list[Sequence]:
+def read_fasta_data(filename: str, prefix: str = 'data/',
+                    update: bool = False) -> list[Sequence]:
     """Reads a file or fasta sequences. Mostly for use with rosalind problems
 
     :param filename: Filename
