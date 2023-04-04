@@ -137,7 +137,7 @@ class Sequence():
     immediately run __update_after_changes__
     :type update_immediately: bool"""
     def __init__(self, dna: str, id: str = '',
-                 *, is_rna: bool = False,
+                 *, is_rna: bool=False,
                  update_immediately=False) -> None:
         """Constructor"""
         if not is_rna:
@@ -208,19 +208,9 @@ class Sequence():
         min_skew = min(self.skew)
         self.suspected_oriC = self.skew.index(min_skew)
 
-    def __update_after_changes__(self) -> None:
-        """Updates DNA base counts, RNA base counts,
-        complements and reverse complements,
-        peptide chains and reverse peptide chains, skew, and suspected oriC"""
-        self.dna_base_count = {'G': self.dna.count('G'),
-                               'C': self.dna.count('C'),
-                               'T': self.dna.count('T'),
-                               'A': self.dna.count('A')}
-        self.rna_base_count = {'G': self.rna.count('G'),
-                               'C': self.rna.count('C'),
-                               'U': self.rna.count('U'),
-                               'A': self.rna.count('A')}
-
+    def __find_reverse_complements__(self) -> None:
+        """Internal method. Finds and assigns the reverse complements
+        of the DNA and RNA strands"""
         try:
             self.dna_complement = ''.join(
                 [dna_complements[x] for x in self.dna])
@@ -235,6 +225,55 @@ class Sequence():
         except KeyError as e:
             print(f'RNA sequences cannot contain {e}')
 
+    def __update_base_counts__(self) -> None:
+        """Internal method. Counts each base in RNA and DNA strands"""
+        self.dna_base_count = {'G': self.dna.count('G'),
+                               'C': self.dna.count('C'),
+                               'T': self.dna.count('T'),
+                               'A': self.dna.count('A')}
+        self.rna_base_count = {'G': self.rna.count('G'),
+                               'C': self.rna.count('C'),
+                               'U': self.rna.count('U'),
+                               'A': self.rna.count('A')}
+
+    def __find_reading_frames__(self) -> None:
+        """Internal method. Finds all reading frames"""
+        self.__find_reverse_complements__()
+        self.reading_frames = []
+        for i in range(3):
+            beginning = 0 + i
+            if i != 0:
+                ending = len(self.dna) - (3 - i)
+            else:
+                ending = len(self.dna)
+            self.reading_frames.append(self.rna[beginning:ending])
+            self.reading_frames.append(self.rna_reverse_complement[beginning:ending])
+
+    def __find_open_reading_frames__(self) -> None:
+        """Internal method. Finds all open reading frames"""
+        self.__find_reading_frames__()
+        self.__find_reverse_complements__()
+        self.open_reading_frames = []
+        for frame in self.reading_frames:
+            start_codons = find_all_indices(frame, 'AUG')
+            stop_codons = []
+            stop_codons.extend(find_all_indices(frame, 'UAA'))
+            stop_codons.extend(find_all_indices(frame, 'UAG'))
+            stop_codons.extend(find_all_indices(frame, 'UGA'))
+
+            for start_codon in start_codons:
+                for stop_codon in stop_codons:
+                    self.open_reading_frames.append(frame[start_codon:stop_codon])
+        self.open_reading_frames = [Sequence(x, update_immediately=True, is_rna=True) for x in self.open_reading_frames]
+        self.open_reading_frames = [x for x in self.open_reading_frames if '*' not in x.peptide_chain and x.peptide_chain != '']
+            
+
+    def __update_after_changes__(self) -> None:
+        """Updates DNA base counts, RNA base counts,
+        complements and reverse complements,
+        peptide chains and reverse peptide chains, skew, and suspected oriC"""
+        self.__find_reverse_complements__()
+        self.__update_base_counts__()
         self.__form_peptide_chain__()
         self.__form_reverse_complement_peptide_chain__()
         self.__find_skew__()
@@ -253,6 +292,7 @@ class Sequence():
         denominator = Decimal(len(self.dna))
         return round(numerator / denominator, round_places)
 
+    # Put sanity checking on shortest, longest, and window
     def find_substrings(self, shortest: int, longest: int = 0,
                         *, window: Tuple[int, int] = (0, 0)) -> Dict[str, int]:
         """Finds all unique substrings of any defined length
@@ -362,6 +402,8 @@ class Sequence():
                 locations.append(i)
         return locations
 
+    
+
 
 # alanine          = ala = A
 # arginine         = arg = R
@@ -390,8 +432,8 @@ class Sequence():
 rna_bases = ['U', 'C', 'A', 'G']
 dna_bases = ['T', 'C', 'A', 'G']
 codons = [a + b + c for a in rna_bases for b in rna_bases for c in rna_bases]
-amino_acids_string = 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAA \
-                      ADDEEGGGG'
+amino_acids_string = 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRR'
+amino_acids_string += 'VVVVAAAADDEEGGGG'
 codon_table = dict(zip(codons, amino_acids_string))
 
 dna_complements = {'T': 'A', 'A': 'T', 'C': 'G', 'G': 'C'}
@@ -465,6 +507,9 @@ for amino_acid in amino_acid_composition.keys():
 protein_alphabet = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L',
                     'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
+
+def find_all_indices(s, ch):
+    return [i for i in range(0, len(s), len(ch)) if s[i:i+len(ch)] == ch]
 
 def concat_sequences(sequences: List[Sequence]) -> Sequence:
     """Concatenates multiple sequences into a single sequence
@@ -567,13 +612,15 @@ def read(filename: str, prefix: str = 'data/') -> list[str]:
         return input_data
 
 
-def read_fasta_data(filename: str, prefix: str = 'data/') -> list[Sequence]:
+def read_fasta_data(filename: str, prefix: str = 'data/', update: bool=False) -> list[Sequence]:
     """Reads a file or fasta sequences. Mostly for use with rosalind problems
 
     :param filename: Filename
     :type filename: str
     :param prefix: Prefix for filename
     :type prefix: str
+    :param update: Update immediately? Defaults to False
+    :type update: Bool
     :return: Content of the file
     :trype: List[Sequence]
     """
@@ -592,7 +639,7 @@ def read_fasta_data(filename: str, prefix: str = 'data/') -> list[Sequence]:
     fasta_data[current_id] = current_fasta
     sequences = []
     for k, v in fasta_data.items():
-        sequences.append(Sequence(v, k))
+        sequences.append(Sequence(v, k, update_immediately=update))
 
     return sequences
 
