@@ -139,7 +139,7 @@ class Sequence():
     :type update_immediately: bool"""
     def __init__(self, dna: str, id: str = '',
                  *, is_rna: bool = False,
-                 update_immediately: bool = False) -> None:
+                 update: bool = False) -> None:
         """Constructor"""
         if not is_rna:
             self.dna = dna.upper()
@@ -150,8 +150,8 @@ class Sequence():
 
         self.id = id
 
-        if update_immediately:
-            self.__update_after_changes__()
+        if update:
+            self.__update__()
 
     def __len__(self) -> int:
         return len(self.dna)
@@ -166,6 +166,14 @@ class Sequence():
         if not isinstance(seq2, Sequence):
             return NotImplemented
         return self.dna == seq2.dna
+
+    def __update__(self):
+        self.__find_reverse_complements__()
+        self.__form_peptide_chain__()
+        self.__form_reverse_complement_peptide_chain__()
+        self.__find_skew__()
+        self.__find_suspected_oriC__()
+        self.__update_base_counts__()
 
     def __form_peptide_chain__(self) -> None:
         """Internal method. Defines the peptide chain
@@ -184,6 +192,10 @@ class Sequence():
         """Internal method. Defines the reverse complement
         peptide chain formed by the entire DNA strand"""
         self.reverse_complement_peptide_chain = ''
+        try:
+            self.rna_complement
+        except AttributeError:
+            self.__find_reverse_complements__()
         rna_copy = [x for x in self.rna_complement]
 
         for _ in range(len(rna_copy) // 3):
@@ -205,7 +217,10 @@ class Sequence():
 
     def __find_suspected_oriC__(self) -> None:
         """Internal method. Defines the index of the suspected oriC"""
-        self.__find_skew__()
+        try:
+            self.skew
+        except AttributeError:
+            self.__find_skew__()
         min_skew = min(self.skew)
         self.suspected_oriC = self.skew.index(min_skew)
 
@@ -239,8 +254,11 @@ class Sequence():
 
     def __find_reading_frames__(self) -> None:
         """Internal method. Finds all reading frames"""
-        self.__find_reverse_complements__()
         self.reading_frames = []
+        try:
+            self.rna_reverse_complement
+        except AttributeError:
+            self.__find_reverse_complements__()
         for i in range(3):
             beginning = 0 + i
             if i != 0:
@@ -253,8 +271,10 @@ class Sequence():
 
     def __find_open_reading_frames__(self) -> None:
         """Internal method. Finds all open reading frames"""
-        self.__find_reading_frames__()
-        self.__find_reverse_complements__()
+        try:
+            self.reading_frames
+        except AttributeError:
+            self.__find_reading_frames__()
         self.open_reading_frames = []
         for frame in self.reading_frames:
             start_codons = find_all_indices(frame, 'AUG')
@@ -273,23 +293,6 @@ class Sequence():
         self.open_reading_frames = [x for x in self.open_reading_frames
                                     if '*' not in x.peptide_chain
                                     and x.peptide_chain != '']
-
-    def __update_after_changes__(self) -> None:
-        """Updates DNA base counts, RNA base counts,
-        complements and reverse complements,
-        peptide chains and reverse peptide chains, skew, and suspected oriC"""
-
-        # NOTE (Tess): No need to directly call __find_reading_frames__
-        # or __find_reverse_complements__ since __find_open_reading_frames__
-        # calls them both
-        self.__find_open_reading_frames__()
-        self.__update_base_counts__()
-        self.__form_peptide_chain__()
-        self.__form_reverse_complement_peptide_chain__()
-
-        # NOTE (Tess): No need to directly call __find_skew__
-        # since __find_suspected_oriC__ calls it
-        self.__find_suspected_oriC__()
 
     def find_reverse_palindromes(self, min_length: int,
                                  max_length: int) -> List[Tuple[int, int]]:
@@ -346,7 +349,7 @@ class Sequence():
             print("Window out of bounds. Fixing.")
             window = (0, window[1])
 
-        if longest > shortest:
+        if longest < shortest:
             shortest, longest = longest, shortest
         if longest > window[1] - window[0]:
             print("Substrings too large. Fixing.")
@@ -690,12 +693,12 @@ def read_fasta_data(filename: str, prefix: str = 'data/',
     fasta_data[current_id] = current_fasta
     sequences = []
     for k, v in fasta_data.items():
-        sequences.append(Sequence(v, k, update_immediately=update))
+        sequences.append(Sequence(v, k, update=update))
 
     return sequences
 
 
-def read_uniprot(access_ids: list[str]) -> list[Protein]:
+def read_uniprot(access_ids: list[str], quiet=True) -> list[Protein]:
     """Fetches fasta data from uniprot.org
 
     :param access_ids: Ids to locate in the uniprot database
@@ -708,7 +711,8 @@ def read_uniprot(access_ids: list[str]) -> list[Protein]:
     for id in access_ids:
         real_id = id.split('_', 1)[0]
         url = base_url + real_id
-        print(f'Fetching {url}')
+        if not quiet:
+            print(f'Fetching {url}')
         downloaded_data = (requests.get(url, allow_redirects=True).text)
         downloaded_data = json.loads(downloaded_data)
         downloaded_data = downloaded_data['sequence']['value']
@@ -787,6 +791,29 @@ def find_consensus_matrix(sequences: list[Sequence]) -> Dict[str, List[int]]:
 
     return d
 
+def find_common_substrings(sequences: List[Sequence]) -> Dict[str, int]:
+    longest_sequence = None
+    max_length = 0
+    for sequence in sequences:
+        if len(sequence) > max_length:
+            longest_sequence = sequence
+            max_length = len(sequence)
+    longest_substring = ''
+    substring_length = 0
+
+    substrings = longest_sequence.find_substrings(1, len(longest_sequence))
+    for substring in substrings.keys():
+        in_all_sequences = True
+        for sequence in sequences:
+            if substring not in sequence.dna:
+                in_all_sequences = False
+                break
+        if in_all_sequences:
+            if len(substring) > substring_length:
+                longest_substring = substring
+                substring_length = len(substring)
+            
+    return longest_substring
 
 def check_sequence_lengths(sequences: list[Sequence]) -> None:
     """Ensures a list of sequences are all the same length
