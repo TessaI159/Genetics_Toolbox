@@ -287,7 +287,7 @@ class Sequence():
                 for stop_codon in stop_codons:
                     self.open_reading_frames.append(frame
                                                     [start_codon:stop_codon])
-        self.open_reading_frames = [Sequence(x, update_immediately=True,
+        self.open_reading_frames = [Sequence(x, update=True,
                                              is_rna=True) for x in
                                     self.open_reading_frames]
         self.open_reading_frames = [x for x in self.open_reading_frames
@@ -300,7 +300,7 @@ class Sequence():
         for i in range(min_length, max_length + 1):
             for ii in range(len(self.dna) - i + 1):
                 partial_sequence = Sequence(self.dna[ii:ii+i],
-                                            update_immediately=True)
+                                            update=True)
                 if partial_sequence.dna == \
                    partial_sequence.dna_reverse_complement:
                     answer.append((ii + 1, i))
@@ -420,7 +420,7 @@ class Sequence():
         """
         while intron in self.rna:
             self.rna = self.rna.replace(intron, '')
-        self.__update_after_changes__()
+        self.__update__()
 
     def find_motif(self, dna_chain: str) -> List[int]:
         """Finds all occurences of dna_chain inside the DNA strand
@@ -791,8 +791,12 @@ def find_consensus_matrix(sequences: list[Sequence]) -> Dict[str, List[int]]:
 
     return d
 
-def find_common_substrings(sequences: List[Sequence]) -> Dict[str, int]:
-    longest_sequence = None
+# NOTE (Tess): This is very slow. A list of k <= 100 sequences
+# each of length <= 1000 takes 7 seconds to compute
+
+
+def find_longest_common_substring(sequences: List[Sequence]) -> str:
+    longest_sequence = Sequence('')
     max_length = 0
     for sequence in sequences:
         if len(sequence) > max_length:
@@ -812,8 +816,9 @@ def find_common_substrings(sequences: List[Sequence]) -> Dict[str, int]:
             if len(substring) > substring_length:
                 longest_substring = substring
                 substring_length = len(substring)
-            
+
     return longest_substring
+
 
 def check_sequence_lengths(sequences: list[Sequence]) -> None:
     """Ensures a list of sequences are all the same length
