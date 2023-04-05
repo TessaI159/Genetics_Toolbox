@@ -279,16 +279,30 @@ class Sequence():
         complements and reverse complements,
         peptide chains and reverse peptide chains, skew, and suspected oriC"""
 
-        # NOTE (Tess): No need to directly call __find_reading_frames
+        # NOTE (Tess): No need to directly call __find_reading_frames__
         # or __find_reverse_complements__ since __find_open_reading_frames__
         # calls them both
         self.__find_open_reading_frames__()
         self.__update_base_counts__()
         self.__form_peptide_chain__()
         self.__form_reverse_complement_peptide_chain__()
+
         # NOTE (Tess): No need to directly call __find_skew__
         # since __find_suspected_oriC__ calls it
         self.__find_suspected_oriC__()
+
+    def find_reverse_palindromes(self, min_length: int,
+                                 max_length: int) -> List[Tuple[int, int]]:
+        answer = []
+        for i in range(min_length, max_length + 1):
+            for ii in range(len(self.dna) - i + 1):
+                partial_sequence = Sequence(self.dna[ii:ii+i],
+                                            update_immediately=True)
+                if partial_sequence.dna == \
+                   partial_sequence.dna_reverse_complement:
+                    answer.append((ii + 1, i))
+        answer = sorted(answer)
+        return answer
 
     def gc_content(self, round_places: int = 3) -> Decimal:
         """Checks the gc content of the DNA chain
@@ -303,7 +317,6 @@ class Sequence():
         denominator = Decimal(len(self.dna))
         return round(numerator / denominator, round_places)
 
-    # Put sanity checking on shortest, longest, and window
     def find_substrings(self, shortest: int, longest: int = 0,
                         *, window: Tuple[int, int] = (0, 0)) -> Dict[str, int]:
         """Finds all unique substrings of any defined length
@@ -324,6 +337,20 @@ class Sequence():
             window = (0, len(self.dna))
         if longest == 0:
             longest = shortest
+        if window[0] > window[1]:
+            window = (window[1], window[0])
+        if window[1] > len(self.dna):
+            print("Window out of bounds. Fixing.")
+            window = (window[0], len(self.dna))
+        if window[0] < 0:
+            print("Window out of bounds. Fixing.")
+            window = (0, window[1])
+
+        if longest > shortest:
+            shortest, longest = longest, shortest
+        if longest > window[1] - window[0]:
+            print("Substrings too large. Fixing.")
+            longest = window[1] - window[0]
 
         substring_chains: Dict[str, int] = dict()
         for length in range(shortest, longest+1):
@@ -336,7 +363,6 @@ class Sequence():
             substring_chains.items(), key=lambda x: x[1]))
         return substring_chains
 
-    # Put sanity checing on the search_window and window size params
     def find_clumps(self, k: int, clump_size: int,
                     window_size: int, search_window:
                     Tuple[int, int] = (0, 0)) -> set[str]:
@@ -357,8 +383,22 @@ class Sequence():
         least clump_size times within a range of window_size base pairs
         :rtype: Set[str]
         """
+
         if search_window == (0, 0):
             search_window = (0, len(self.dna))
+
+        if search_window[0] > search_window[1]:
+            search_window = (search_window[1], search_window[0])
+        if search_window[0] < 0:
+            print("Search window can't be negative. Fixing.")
+            search_window = (0, search_window[1])
+        if search_window[1] > len(self.dna):
+            print("Can't search outside DNA. Fixing.")
+            search_window = (search_window[0], len(self.dna))
+        if window_size < search_window[1] - search_window[0]:
+            print("Window size can't be less than search window size. Fixing.")
+            window_size = search_window[1] - search_window[1]
+
         substring_chains: List[str] = []
         for i in range(search_window[0], search_window[1] - window_size + 1):
             substrings = self.find_substrings(k, window=(i, i + window_size))
