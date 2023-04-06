@@ -560,6 +560,16 @@ protein_alphabet = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L',
                     'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
 
+def ok_adjacency_list(k: int, sequences: List[Sequence]) -> List[str]:
+    answer = ''
+    for loop1 in sequences:
+        for loop2 in sequences:
+            if loop1.dna[-k:] == loop2.dna[:k] and loop1.dna != loop2.dna:
+                answer += f'{loop1.id} {loop2.id}\n'
+
+    return answer
+
+
 def find_all_indices(s, ch):
     return [i for i in range(0, len(s), len(ch)) if s[i:i+len(ch)] == ch]
 
@@ -793,7 +803,6 @@ def find_consensus_matrix(sequences: list[Sequence]) -> Dict[str, List[int]]:
 
 # NOTE (Tess): This is very slow. A list of k <= 100 sequences
 # each of length <= 1000 takes 7 seconds to compute
-
 
 def find_longest_common_substring(sequences: List[Sequence]) -> str:
     longest_sequence = Sequence('')
