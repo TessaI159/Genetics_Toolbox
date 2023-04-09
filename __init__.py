@@ -265,9 +265,9 @@ class Sequence():
                 ending = len(self.dna) - (3 - i)
             else:
                 ending = len(self.dna)
-            self.reading_frames.append(self.rna[beginning:ending])
-            self.reading_frames.append(self.rna_reverse_complement
-                                       [beginning:ending])
+            self.reading_frames.append(Sequence(self.rna[beginning:ending]))
+            self.reading_frames.append(Sequence(self.rna_reverse_complement
+                                       [beginning:ending]))
 
     def __find_open_reading_frames__(self) -> None:
         """Internal method. Finds all open reading frames"""
@@ -277,19 +277,20 @@ class Sequence():
             self.__find_reading_frames__()
         self.open_reading_frames = []
         for frame in self.reading_frames:
-            start_codons = find_all_indices(frame, 'AUG')
+            start_codons = find_all_indices(frame.rna, 'AUG')
             stop_codons = []
-            stop_codons.extend(find_all_indices(frame, 'UAA'))
-            stop_codons.extend(find_all_indices(frame, 'UAG'))
-            stop_codons.extend(find_all_indices(frame, 'UGA'))
+            stop_codons.extend(find_all_indices(frame.rna, 'UAA'))
+            stop_codons.extend(find_all_indices(frame.rna, 'UAG'))
+            stop_codons.extend(find_all_indices(frame.rna, 'UGA'))
 
             for start_codon in start_codons:
                 for stop_codon in stop_codons:
-                    self.open_reading_frames.append(frame
+                    self.open_reading_frames.append(frame.rna
                                                     [start_codon:stop_codon])
-        self.open_reading_frames = [Sequence(x, update=True,
-                                             is_rna=True) for x in
+        self.open_reading_frames = [Sequence(x, is_rna=True) for x in
                                     self.open_reading_frames]
+        for frame in self.open_reading_frames:
+            frame.__form_peptide_chain__()
         self.open_reading_frames = [x for x in self.open_reading_frames
                                     if '*' not in x.peptide_chain
                                     and x.peptide_chain != '']
@@ -569,10 +570,8 @@ def ok_adjacency_list(k: int, sequences: List[Sequence]) -> List[str]:
 
     return answer
 
-
 def find_all_indices(s, ch):
     return [i for i in range(0, len(s), len(ch)) if s[i:i+len(ch)] == ch]
-
 
 def concat_sequences(sequences: List[Sequence]) -> Sequence:
     """Concatenates multiple sequences into a single sequence
