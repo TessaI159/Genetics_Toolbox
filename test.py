@@ -1,10 +1,25 @@
 import unittest
-from Genetics_Toolbox import read_fasta_data, read_uniprot, n_glycosylation, Sequence
-from Genetics_Toolbox import generate_random_sequences
+from Genetics_Toolbox import *
 
 sequences = read_fasta_data('testdata.data', '', update=True)
 basic_test_sequence = Sequence('AGCTGGCTA')
 
+class TestProteinMotifCreation(unittest.TestCase):
+    def runTest(self):
+        protein_motif = ProteinMotif('KM[YVW]{YVW}[YVW]')
+        self.assertEqual(protein_motif.positions, [['K'], ['M'], ['Y', 'V', 'W'], ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T'], ['Y', 'V', 'W']])
+        self.assertTrue(protein_motif.match('KMWLV'))
+        self.assertTrue(protein_motif.match('KMYKY'))
+        self.assertFalse(protein_motif.match('KMWLVL'))
+        self.assertFalse(protein_motif.match('KMYYY'))
+
+class TestProteinCreation(unittest.TestCase):
+    def runTest(self):
+        protein = read_uniprot(["B5ZC00"])[0]
+        self.assertEqual(protein.find_motifs(n_glycosylation),
+                    [85, 118, 142, 306, 395],
+                    "Protein motifs are incorrect")
+        
 class TestSequenceUpdates(unittest.TestCase):
     def runTest(self):
         update_test_sequence = generate_random_sequences(1, (0.0,1.0), (10**5, 10**6))
@@ -12,11 +27,16 @@ class TestSequenceUpdates(unittest.TestCase):
 
 class TestPeptideChains(unittest.TestCase):
     def runTest(self):
-        update_test_sequence = generate_random_sequences(1, (0.0,1.0), (10**5, 10**6))
-        update_test_sequence.__form_peptide_chain__()
-        update_test_sequence.__form_reverse_complement_peptide_chain__()
+        test_sequence = Sequence('TTTTTCTTATTGCTTCTCCTACTGATTATCATAATGGTTGTCGTAGTGTCTTCCTCATCGCCTCCCCCACCGACTACCACAACGGCTGCCGCAGCGTATTACTAATAGCATCACCAACAGAATAACAAAAAGGATGACGAAGAGTGTTGCTGATGGCGTCGCCGACGGAGTAGCAGAAGGGGTGGCGGAGGG')
+        test_sequence.__update__()
         
-            
+        self.assertEqual('FFLLLLLLIIIMVVVVSSSSPPPPTTTTAAAAYY**HHQQNNKKDDEECC*WRRRRSSRRGGGG', test_sequence.peptide_chain)
+        self.assertEqual('PSATPSATPSATPSATLFVILFVILLVMLLVIRCGSRCGSRWGRR*GRHYDNHYDNQ*EKQ*EK', test_sequence.reverse_complement_peptide_chain)
+
+class TestSkew(unittest.TestCase):
+    pass
+        
+
 class TestGCContent(unittest.TestCase):
     def runTest(self):
         for i, sequence in enumerate(sequences):
@@ -71,12 +91,5 @@ class TestSubstrings(unittest.TestCase):
         subs = basic_test_sequence.find_substrings(8, 9)
         self.assertEqual(subs, {'AGCTGGCT': 1, 'GCTGGCTA': 1, 'AGCTGGCTA': 1},
                          "Substrings are incorrect")
-
-class TestProteinCreation(unittest.TestCase):
-    def runTest(self):
-        protein = read_uniprot(["B5ZC00"])[0]
-        self.assertEqual(protein.find_motifs(n_glycosylation),
-                    [85, 118, 142, 306, 395],
-                    "Protein motifs are incorrect")
 
 unittest.main()

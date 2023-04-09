@@ -78,6 +78,8 @@ class ProteinMotif():
         :return: True if matches, False otherwise
         :rtype: bool
         """
+        if len(substring) != len(self.positions):
+            return False
         for i in range(len(substring)):
             if substring[i] not in self.positions[i]:
                 return False
